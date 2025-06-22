@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detector de Pneumonia por Raio-X</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        /* Estilos básicos para deixar "um pouco bonito" */
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            color: #333;
+        }
+        .container {
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            width: 90%;
+            max-width: 500px;
+        }
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+        }
+        input[type="file"] {
+            display: block;
+            margin: 20px auto;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            width: fit-content;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s ease;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        #result {
+            margin-top: 25px;
+            padding: 15px;
+            border-radius: 5px;
+            background-color: #e9f7ef;
+            border: 1px solid #d4edda;
+            color: #155724;
+            font-size: 1.1em;
+            display: none; /* Escondido por padrão */
+            word-wrap: break-word; /* Garante que o texto se quebre se for longo */
+        }
+        #result.error {
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+            color: #721c24;
+        }
+        #uploadedImage {
+            max-width: 100%;
+            height: auto;
+            margin-top: 20px;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+        }
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-left-color: #3498db;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            vertical-align: middle;
+            margin-left: 10px;
+            display: none; /* Escondido por padrão */
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Detector de Pneumonia por Raio-X</h1>
+        <p>Envie uma imagem de raio-X de tórax para classificação.</p>
+        
+        <form id="uploadForm" enctype="multipart/form-data">
+            <input type="file" name="file" id="fileInput" accept="image/*">
+            <button type="submit">Classificar</button>
+            <span class="spinner" id="loadingSpinner"></span>
+        </form>
+
+        <img id="uploadedImage" src="" alt="Imagem Carregada" style="display: none;">
+
+        <div id="result">
+            </div>
+    </div>
+
+    <script>
+        document.getElementById('uploadForm').addEventListener('submit', async function(event) {
+            event.preventDefault(); // Impede o envio padrão do formulário
+            
+            const fileInput = document.getElementById('fileInput');
+            const resultDiv = document.getElementById('result');
+            const uploadedImage = document.getElementById('uploadedImage');
+            const loadingSpinner = document.getElementById('loadingSpinner');
+
+            resultDiv.style.display = 'none'; // Esconde o resultado anterior
+            resultDiv.classList.remove('error'); // Remove classe de erro anterior
+            uploadedImage.style.display = 'none'; // Esconde a imagem anterior
+            loadingSpinner.style.display = 'inline-block'; // Mostra o spinner
+
+            if (fileInput.files.length === 0) {
+                resultDiv.textContent = 'Por favor, selecione um arquivo de imagem.';
+                resultDiv.style.display = 'block';
+                resultDiv.classList.add('error');
+                loadingSpinner.style.display = 'none';
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+
+            try {
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    resultDiv.innerHTML = `Previsão: ${data.prediction}<br>(Probabilidade de Pneumonia: ${data.probability_pneumonia.toFixed(4)})`;
+                    resultDiv.style.display = 'block';
+                    if (data.image_url) {
+                        uploadedImage.src = data.image_url;
+                        uploadedImage.style.display = 'block';
+                    }
+                } else {
+                    resultDiv.textContent = `Erro: ${data.error || 'Ocorreu um erro desconhecido.'}`;
+                    resultDiv.classList.add('error');
+                    resultDiv.style.display = 'block';
+                }
+            } catch (error) {
+                resultDiv.textContent = `Erro de conexão: ${error.message}`;
+                resultDiv.classList.add('error');
+                resultDiv.style.display = 'block';
+            } finally {
+                loadingSpinner.style.display = 'none'; // Esconde o spinner no final
+            }
+        });
+    </script>
+</body>
+</html>
